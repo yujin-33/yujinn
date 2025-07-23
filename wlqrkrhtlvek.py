@@ -1,16 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# GPT API 사용 여부 체크
-try:
-    import openai
-    openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
-
-st.set_page_config(page_title="AI 수학 오답노트", layout="wide")
-st.title("📘 AI 기반 수학 오답노트 생성기")
+st.set_page_config(page_title="수학 오답노트", layout="wide")
+st.title("📘 수학 오답노트 생성기 (GPT 없이)")
 
 # 세션 초기화
 if "custom_problems" not in st.session_state:
@@ -50,7 +42,7 @@ if st.session_state.custom_problems:
     st.dataframe(df)
 
     st.markdown("---")
-    st.header("2️⃣ 문제 선택 및 분석")
+    st.header("2️⃣ 오답 확인 및 정리")
 
     selected = st.selectbox("분석할 문제 선택", df["문제번호"].tolist())
     prob = df[df["문제번호"] == selected].iloc[0]
@@ -61,43 +53,28 @@ if st.session_state.custom_problems:
     st.markdown(f"**내가 푼 답:** {prob['사용자답안']}")
     st.markdown(f"**풀이 과정:**\n{prob['풀이과정']}")
 
-    feedback_key = f"ai_feedback_{selected}"
-    if OPENAI_AVAILABLE:
-        if st.button("🤖 AI 피드백 요청"):
-            with st.spinner("AI 분석 중..."):
-                prompt = f'''
-[문제]
-{prob["문제"]}
-
-[정답]
-{prob["정답"]}
-
-[풀이]
-{prob["풀이과정"]}
-
-1. 사용자의 풀이에서 오류가 있다면 설명해줘.
-2. 올바른 풀이 과정을 단계별로 제시해줘.
-3. 오해한 개념이 있다면 짚어줘.
-'''
-                response = openai.ChatCompletion.create(
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3
-                )
-                st.session_state[feedback_key] = response["choices"][0]["message"]["content"]
+    # 오답 여부 판정
+    if prob["정답"].strip() == prob["사용자답안"].strip():
+        st.success("⭕ 정답입니다!")
     else:
-        st.warning("GPT 기능을 사용하려면 openai 모듈과 API 키가 필요합니다.")
+        st.error("❌ 오답입니다.")
+        st.info(f"정답은 **{prob['정답']}** 입니다.")
 
-    if feedback_key in st.session_state:
-        st.markdown("### 🧠 AI 분석 결과")
-        st.markdown(st.session_state[feedback_key])
+    # 오답 이유 직접 작성
+    reason_key = f"wrong_reason_{selected}"
+    wrong_reason = st.text_area("❗ 내가 왜 틀렸는지 정리해보기", value=st.session_state.get(reason_key, ""))
+    if st.button("📌 오답 이유 저장"):
+        st.session_state[reason_key] = wrong_reason
+        st.success("오답 이유 저장 완료!")
 
+    # 깨달은 점
     note_key = f"user_note_{selected}"
     note = st.text_area("✍️ 내가 정리한 깨달은 점", value=st.session_state.get(note_key, ""))
     if st.button("📝 메모 저장"):
         st.session_state[note_key] = note
         st.success("메모 저장 완료!")
 
+    # 다시 풀기
     retry_key = f"retry_answer_{selected}"
     retry = st.text_area("🔁 다시 풀어보기", value=st.session_state.get(retry_key, ""))
     if st.button("✅ 다시 풀기 저장"):
@@ -111,7 +88,7 @@ if st.session_state.custom_problems:
         full_data = st.session_state.custom_problems
         for item in full_data:
             qid = item["문제번호"]
-            item["AI 피드백"] = st.session_state.get(f"ai_feedback_{qid}", "")
+            item["오답 이유"] = st.session_state.get(f"wrong_reason_{qid}", "")
             item["사용자 메모"] = st.session_state.get(f"user_note_{qid}", "")
             item["다시 풀기"] = st.session_state.get(f"retry_answer_{qid}", "")
         result_df = pd.DataFrame(full_data)
