@@ -53,8 +53,9 @@ if st.session_state.custom_problems:
     if correct_answer:
         user_input_key = f"user_input_{selected}"
         user_answer = st.text_input("✏️ 당신의 답을 입력하세요:", value=st.session_state.get(user_input_key, ""))
+        submit1 = st.button("🚨 채점하기")
 
-        if st.button("🚨 채점하기"):
+        if submit1:
             st.session_state[user_input_key] = user_answer
             if user_answer.strip() == correct_answer.strip():
                 st.success("⭕ 정답입니다!")
@@ -67,28 +68,31 @@ if st.session_state.custom_problems:
             else:
                 st.error("❌ 오답입니다. 다시 풀어보세요!")
 
-                fix_key = f"fix_answer_{selected}"
-                fix = st.text_input("🔁 고쳐보기 (정답일 때까지 반복)", value=st.session_state.get(fix_key, ""))
-                if st.button("🔁 고쳐 쓴 답 채점"):
-                    st.session_state[fix_key] = fix
-                    if fix.strip() == correct_answer.strip():
-                        st.success("⭕ 정답입니다! 다시 풀기에 성공했어요.")
-                        reason_key = f"reason_{selected}"
-                        reflection_key = f"reflection_{selected}"
-                        reason = st.text_area("📌 왜 틀렸는지 적어보세요", value=st.session_state.get(reason_key, ""))
-                        reflection = st.text_area("🧠 이번 문제에서 깨달은 점은?", value=st.session_state.get(reflection_key, ""))
-                        if st.button("📝 성찰 저장"):
-                            st.session_state[reason_key] = reason
-                            st.session_state[reflection_key] = reflection
-                            st.session_state.final_answers[selected] = {
-                                "문제": prob['문제'],
-                                "최종답안": fix,
-                                "틀린이유": reason,
-                                "성찰": reflection
-                            }
-                            st.success("성찰과 정답이 저장되었습니다!")
-                    else:
-                        st.error("❌ 여전히 오답입니다. 다시 한 번 시도해보세요!")
+        if user_answer.strip() != correct_answer.strip():
+            fix_key = f"fix_answer_{selected}"
+            fix = st.text_input("🔁 고쳐보기 (정답일 때까지 반복)", value=st.session_state.get(fix_key, ""))
+            submit2 = st.button("🔁 고쳐 쓴 답 채점")
+
+            if submit2:
+                st.session_state[fix_key] = fix
+                if fix.strip() == correct_answer.strip():
+                    st.success("⭕ 정답입니다! 다시 풀기에 성공했어요.")
+                    reason_key = f"reason_{selected}"
+                    reflection_key = f"reflection_{selected}"
+                    reason = st.text_area("📌 왜 틀렸는지 적어보세요", value=st.session_state.get(reason_key, ""))
+                    reflection = st.text_area("🧠 이번 문제에서 깨달은 점은?", value=st.session_state.get(reflection_key, ""))
+                    if st.button("📝 성찰 저장"):
+                        st.session_state[reason_key] = reason
+                        st.session_state[reflection_key] = reflection
+                        st.session_state.final_answers[selected] = {
+                            "문제": prob['문제'],
+                            "최종답안": fix,
+                            "틀린이유": reason,
+                            "성찰": reflection
+                        }
+                        st.success("성찰과 정답이 저장되었습니다!")
+                else:
+                    st.error("❌ 여전히 오답입니다. 다시 한 번 시도해보세요!")
 
     st.markdown("---")
     st.header("3️⃣ 최종 저장된 결과 보기")
