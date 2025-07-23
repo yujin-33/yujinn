@@ -8,6 +8,9 @@ st.title("🧮 수학 채점기")
 if "custom_problems" not in st.session_state:
     st.session_state.custom_problems = []
 
+if "final_answers" not in st.session_state:
+    st.session_state.final_answers = {}
+
 st.header("1️⃣ 수학 문제 입력")
 input_method = st.radio("문제 입력 방식", ["CSV 업로드", "직접 입력"], horizontal=True)
 
@@ -40,7 +43,7 @@ if st.session_state.custom_problems:
     st.dataframe(df)
 
     st.markdown("---")
-    st.header("2️⃣ 채점 결과 확인")
+    st.header("2️⃣ 채점 및 고쳐보기")
 
     selected = st.selectbox("채점할 문제 선택", df["문제번호"].tolist())
     prob = df[df["문제번호"] == selected].iloc[0]
@@ -50,28 +53,50 @@ if st.session_state.custom_problems:
     st.markdown(f"**정답:** {prob['정답']}")
     st.markdown(f"**내가 푼 답:** {prob['사용자답안']}")
 
-    # 정오 판정
+    # 1차 채점
     if prob["정답"].strip() == prob["사용자답안"].strip():
         st.success("⭕ 정답입니다!")
+        st.session_state.final_answers[selected] = {
+            "문제": prob['문제'],
+            "정답": prob['정답'],
+            "최종답안": prob['사용자답안'],
+            "성찰": "",
+            "틀린이유": ""
+        }
     else:
         st.error("❌ 오답입니다.")
         st.info(f"정답은 **{prob['정답']}** 입니다.")
 
-    # 고쳐보기
-    fix_key = f"fix_answer_{selected}"
-    fix = st.text_area("🔁 고쳐보기 (다시 풀어보세요)", value=st.session_state.get(fix_key, ""))
-    if st.button("✅ 고쳐 쓴 답 저장"):
-        st.session_state[fix_key] = fix
-        st.success("고쳐 쓴 풀이 저장 완료!")
+        # 고쳐보기 입력
+        fix_key = f"fix_answer_{selected}"
+        fix = st.text_input("🔁 고쳐보기 (다시 풀어보세요)", value=st.session_state.get(fix_key, ""))
+        if st.button("✅ 고쳐 쓴 답 채점"):
+            st.session_state[fix_key] = fix
+            if fix.strip() == prob["정답"].strip():
+                st.success("⭕ 정답입니다! 다시 풀기에 성공했어요.")
+                reason_key = f"reason_{selected}"
+                reflection_key = f"reflection_{selected}"
+                reason = st.text_area("📌 왜 틀렸는지 적어보세요", value=st.session_state.get(reason_key, ""))
+                reflection = st.text_area("🧠 이번 문제에서 깨달은 점은?", value=st.session_state.get(reflection_key, ""))
+                if st.button("📝 성찰 저장"):
+                    st.session_state[reason_key] = reason
+                    st.session_state[reflection_key] = reflection
+                    st.session_state.final_answers[selected] = {
+                        "문제": prob['문제'],
+                        "정답": prob['정답'],
+                        "최종답안": fix,
+                        "틀린이유": reason,
+                        "성찰": reflection
+                    }
+                    st.success("성찰과 정답이 저장되었습니다!")
+            else:
+                st.error("❌ 여전히 오답입니다. 다시 한 번 생각해보세요!")
 
     st.markdown("---")
-    st.header("3️⃣ 채점 결과 저장")
+    st.header("3️⃣ 최종 저장된 결과 보기")
 
-    if st.button("📥 CSV 저장"):
-        full_data = st.session_state.custom_problems
-        for item in full_data:
-            qid = item["문제번호"]
-            item["고쳐 쓴 풀이"] = st.session_state.get(f"fix_answer_{qid}", "")
-        result_df = pd.DataFrame(full_data)
-        csv = result_df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("📄 채점 결과 CSV 다운로드", data=csv, file_name="수학_채점기_결과.csv", mime="text/csv")
+    if st.session_state.final_answers:
+        final_df = pd.DataFrame.from_dict(st.session_state.final_answers, orient="index")
+        st.dataframe(final_df)
+    else:
+        st.info("아직 최종적으로 정답 처리된 문제가 없습니다.")
