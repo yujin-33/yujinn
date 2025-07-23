@@ -1,2 +1,2 @@
 import streamlit as st
-st.title('웹 서비스 만들기')
+st.title('웹 사이트 만들기')
