@@ -1,19 +1,16 @@
 import streamlit as st
 import pandas as pd
 
-# GPT 사용 여부 체크
+# GPT API 사용 여부 체크
 try:
     import openai
+    openai.api_key = st.secrets.get("OPENAI_API_KEY", "")
     OPENAI_AVAILABLE = True
-except ModuleNotFoundError:
+except ImportError:
     OPENAI_AVAILABLE = False
 
 st.set_page_config(page_title="AI 수학 오답노트", layout="wide")
 st.title("📘 AI 기반 수학 오답노트 생성기")
-
-# API 키 설정 (필요 시)
-if OPENAI_AVAILABLE:
-    openai.api_key = st.secrets.get("OPENAI_API_KEY", "sk-...")  # 필요하면 수정
 
 # 세션 초기화
 if "custom_problems" not in st.session_state:
@@ -47,7 +44,6 @@ else:
             })
             st.success(f"{qnum}번 문제 추가됨!")
 
-# 문제 목록
 if st.session_state.custom_problems:
     df = pd.DataFrame(st.session_state.custom_problems)
     st.markdown("### ✅ 입력한 문제 목록")
@@ -63,9 +59,8 @@ if st.session_state.custom_problems:
     st.markdown(f"**문제:** {prob['문제']}")
     st.markdown(f"**정답:** {prob['정답']}")
     st.markdown(f"**내가 푼 답:** {prob['사용자답안']}")
-    st.markdown(f"**풀이 과정:**\n\n{prob['풀이과정']}")
+    st.markdown(f"**풀이 과정:**\n{prob['풀이과정']}")
 
-    # GPT 피드백
     feedback_key = f"ai_feedback_{selected}"
     if OPENAI_AVAILABLE:
         if st.button("🤖 AI 피드백 요청"):
@@ -93,19 +88,16 @@ if st.session_state.custom_problems:
     else:
         st.warning("GPT 기능을 사용하려면 openai 모듈과 API 키가 필요합니다.")
 
-    # AI 피드백 출력
     if feedback_key in st.session_state:
         st.markdown("### 🧠 AI 분석 결과")
         st.markdown(st.session_state[feedback_key])
 
-    # 깨달은 점 메모
     note_key = f"user_note_{selected}"
     note = st.text_area("✍️ 내가 정리한 깨달은 점", value=st.session_state.get(note_key, ""))
     if st.button("📝 메모 저장"):
         st.session_state[note_key] = note
         st.success("메모 저장 완료!")
 
-    # 다시 풀기
     retry_key = f"retry_answer_{selected}"
     retry = st.text_area("🔁 다시 풀어보기", value=st.session_state.get(retry_key, ""))
     if st.button("✅ 다시 풀기 저장"):
@@ -119,4 +111,9 @@ if st.session_state.custom_problems:
         full_data = st.session_state.custom_problems
         for item in full_data:
             qid = item["문제번호"]
-            item["AI 피드백]()
+            item["AI 피드백"] = st.session_state.get(f"ai_feedback_{qid}", "")
+            item["사용자 메모"] = st.session_state.get(f"user_note_{qid}", "")
+            item["다시 풀기"] = st.session_state.get(f"retry_answer_{qid}", "")
+        result_df = pd.DataFrame(full_data)
+        csv = result_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button("📄 오답노트 CSV 다운로드", data=csv, file_name="오답노트.csv", mime="text/csv")
